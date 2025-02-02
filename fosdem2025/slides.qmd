@@ -1,0 +1,394 @@
+---
+title: "Free function API for CadQeury"
+format: 
+  revealjs:
+    smaller: true
+    logo: imgs/cadquery_logo_dark.svg
+    slide-number: c/t
+    embed-resources: true
+revealjs-plugins:
+  - codefocus
+  - pointer
+filters:
+  - code-visibility 
+---
+
+```{python}
+import cadquery as cq
+from cadquery.func import *
+```
+
+## Introduction
+#### What is CadQuery?
+
+```{=html}
+<style type="text/css">
+.reveal .slide-logo {
+  top:  20px;
+  left: 10px;
+  height: 80px !important;
+  width: 80px !important;
+  max-width: unset !important;
+  max-height: unset !important;
+}
+</style>
+```
+
+::: {.fragment }
+- CadQuery is a Python package for parametric 3D modeling. 
+:::
+
+::: {.fragment }
+- Based on a B-rep kernel as opposed to CSG or F-rep
+
+:::
+
+::: {.fragment }
+- Can import and export existing CAD models using STEP 
+
+:::
+
+::: {.fragment }
+- Relies heavily on selectors and fluent APIs
+
+:::
+
+::::{.fragment }
+
+![](imgs/example1.png){.absolute bottom=20 left=0 width=250 height=250}
+![](imgs/example2.png){.absolute bottom=20 left=300 width=250 height=250}
+![](imgs/example3.png){.absolute bottom=20 left=600 width=250 height=250}
+
+::::
+
+## Overview
+
+![](imgs/arch.png)
+
+## Capabilities
+
+::::: {style="font-size: 70%;"}
+
+::::{.columns}
+
+:::{.column}
+
+:::{.incremental}
+
+* Selectors DSL 
+* Free function modeling API
+* Fluent modeling API
+* Sketches
+* Assemblies
+* 2D primitives
+* 3D primitives
+* Boolean operations
+:::
+
+:::
+
+:::{.column}
+
+::: {.fragment}
+* 3D operations
+  * Extrude (tapered, twisted)
+  * Revolve
+  * Loft
+  * Shell
+  * Fillet, chamfer
+  * Sweep / multi-section sweep
+  * 3D text
+:::
+
+::: {.fragment}
+* Supported formats
+  * BREP (R/W)
+  * STEP (R/W)
+  * DXF (2D only) (R/W)
+  * STL (W)
+  * AMF (W)
+  * SVG (W)
+  * and more ...
+:::
+:::
+
+::::
+
+::::
+
+
+## Fluent example
+
+```{.python}
+import cadquery as cq
+
+w, h = 30.0,40.0
+th, dia = 10.0, 22.0
+pad, rf = 12.0, 5
+cb_dia1,cb_dia2, cb_d = 2.5, 5, 4
+ch = .5
+
+result = (cq.Workplane().box(h, w, th)
+    .faces(">Z").workplane().hole(dia)
+    .faces(">Z").workplane()
+    .rect(h - pad, w - pad, forConstruction=True)
+    .vertices().cboreHole(cb_dia1,cb_dia2, cb_d)
+    .edges("|Z").fillet(rf).faces('>Z').chamfer(ch))
+```
+
+
+:::{.fragment data-code-block=1 data-code-focus="1"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="3-7"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="8-14"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="8-14"}
+![](imgs/fluent.png){.absolute bottom=0 left=0 width=300 height=300}
+:::
+
+
+
+## Free functions example
+
+```{.python}
+from cadquery.func import *
+
+r = rect(h, w)
+locs_cbore = [v.Center() for v in rect(h-pad, w-pad).vertices()]
+c = face(circle(dia/2))
+cbs1 = face(circle(cb_dia1/2)).moved(locs_cbore)
+cbs2 = face(circle(cb_dia2/2)).moved(locs_cbore).moved(z=th)
+
+base = extrude(face(r), (0,0,th))
+base = fillet(base, base.edges('|Z'), rf)
+base -= compound(extrude(c, (0,0,th)), extrude(cbs1,(0,0,th)))
+base -= extrude(cbs2, (0,0,-cb_d))
+
+result = chamfer(base, base.faces('>Z').edges(), ch)
+```
+
+:::{.fragment data-code-block=1 data-code-focus="1"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="3"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="4"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="5"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="6-7"}
+:::
+
+
+:::{.fragment data-code-block=1 data-code-focus="9"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="10"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="11"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="12"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="14"}
+![](imgs/free.png){.absolute bottom=0 left=0 width=300 height=300}
+:::
+
+## Key points
+
+:::{.incremental}
+
+* No hidden state
+* We are operating on `cq.Shape` objects
+* Primitives are created using free functions
+* All operations are free functions 
+:::
+:::{.fragment}
+* Boolean operations are also implemented as operators
+  * `+` is `fuse()`
+  * `-` is `cut()`
+  * `*` is `intersect()`
+  * `/` is `split()`
+:::
+:::{.incremental}
+* Selectors can be used on `Shape` 
+* Objects are placed and replicated using `.moved(...)`
+* When applicable, multiple overloads of the same function are provided.
+
+:::
+
+## Other capabilities
+
+::: incremental
+
+* Higher order topological entities can be assembled form lower order topological entities
+
+  * `Wire` can be assembled from `Edge` objects
+  * `Face` from `Wire` objects 
+  * `Solid` form `Face` objects
+
+* This allows to build more complicated objects and often optimize boolean operations away
+
+:::
+
+## Other capabilities
+
+```{.python}
+c1 = circle(1)
+c2 = circle(2)
+
+f_bot = loft(c1, c2)
+sides = extrude(compound(c1,c2), (0,0,3))
+f_top = loft(c1.moved(z=3), circle(1.5).moved(z=2.8), c2.moved(z=3))
+
+result = solid(f_bot, sides, f_top)
+```
+
+:::{.fragment data-code-block=1 data-code-focus="1-2"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="4"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="5"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="6"}
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="8"}
+:::
+
+:::{.fragment}
+![](imgs/capabilities.png){.absolute bottom=0 left=0 width=400 height=400}
+:::
+
+## Other capabilities
+
+::: {.fragment}
+* Shape objects can be checked for correctness
+
+  * `check(s: Shape) -> bool` or `err ==[]; check(s: Shape, err) -> bool`
+:::
+
+::: {.fragment}
+* We can mix and match different APIs
+
+  * `cq.Workplane.add(...)`
+  * `cq.Sketch.face(...)`
+  * `cq.Workplane.val() -> cq.Shape`, `cq.Sketch.val() -> cq.Shape`
+  * `cq.Assembly.add(...)`
+:::
+
+## Roadmap
+
+::: {.incremental}
+* Polish and stabilize the API based on field experience
+* Add local operations
+* Add history object for optional tracking relations between entities
+:::
+
+## What else is new
+
+::: {.fragment}
+* Many additions to `Shape`
+::: 
+
+::: {.fragment}
+* `invoke`, `filter`, `apply` and `map` added to `Workplane` and `Sketch`
+::: 
+
+::: {.fragment}
+* Many quality of life improvements, e.g.
+  * bool ops as operators
+  * `__iter__` for  `Workplane` and `Sketch`
+  * `Workplane` can operate on selected faces 
+::: 
+
+
+## Built-in visualization
+
+```{.python}
+from cadquery.vis import show
+
+f = face(rect(1,1))
+show(f)
+
+show(f, f.outerWire().sample(100), Location(z=10, rz=45))
+```
+
+:::{.fragment data-code-block=1 data-code-focus="1"}
+* CadQuery has a built in visualization function
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="3-4"}
+* Very handy for ad-hoc debugging
+:::
+
+:::{.fragment data-code-block=1 data-code-focus="6"}
+* Recently extended to support
+  * `Location` and `Vector` visualization
+  * Support for visualization of lists
+  * Arbitrary `vtkActor` support
+:::
+
+:::{.fragment}
+* There is also rudimentary support of rendering in Jupyter
+:::
+
+## Built-in visualization
+
+![](imgs/show2.png)
+
+## Built-in visualization
+
+![](imgs/show4.png)
+
+## Projects using CadQuery
+
+CaduQuery helps design cutting edge nuclear fusion reactors.
+
+![](imgs/proxima_logo.png){.absolute top=0 right=0 width=300}
+
+:::{.fragment}
+![](imgs/magnets.png){.absolute top=150 width=500}
+
+:::: aside
+NB: This is not the commercial design of Proxima. Just a visualization of an openly available one.
+::::
+:::
+
+:::{.fragment}
+![](imgs/trimmed_frame_animation.gif){.absolute top=150 width=600}
+:::
+
+
+## How to support us
+
+::: {.incremental}
+* Share your work and nice usage examples
+* Cite CadQuery using `10.5281/zenodo.3955118`
+* Sponsor development of new features  
+:::
+
+## Summary and outlook
+
+::: {.incremental}
+* Free function API is a valuable addition to CadQuery
+* Its development will be continued and it should become stable soon
+* Other features in preparation:
+  * Integration with meshing tools
+  * NURBS geometry layer in CadQuery
+:::
+
+# Thank you!
+
